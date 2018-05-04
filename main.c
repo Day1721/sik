@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
+#include <limits.h>
 
 #include "err.h"
 
@@ -15,6 +17,7 @@
 #define TRUE 1
 #define FALSE 0
 
+#define TELNET_ECHO 1
 #define TELNET_SGA 3
 
 #define TELNET_SUPDUP 21
@@ -39,43 +42,35 @@
 #define TELNET_DONT 0xfe
 #define TELNET_IAC 0xff
 
-// ARROW = {27,91,x}
-// UP_ARROW = ARROW[x->65]
-// DOWN_ARROW = ARROW[x->66]
-// RIGHT_ARROW = ARROW[x->67]
-// LEFT_ARROW = ARROW[x->68]
-// ENTER = {13,0}
-// PAGE = {27,91,x,126}
-// PG_UP = PAGE[x->53]
-// PG_DOWN = PAGE[x->54]
+#define min(a,b) a > b ? b : a
+#define max(a,b) a > b ? a : b
+
+char* CLEAN_SCREEN = "\033[2J\033[H";
+unsigned char UP_ARROW[] = {27,91,65};
+unsigned char DOWN_ARROW[] = {27,91,66};
+unsigned char RIGHT_ARROW[] = {27,91,67};
+unsigned char LEFT_ARROW[] = {27,91,68};
+unsigned char ENTER[] = {13,0};
+unsigned char PAGE_UP[] = {27,91,53,126};
+unsigned char PAGE_DOWN[] = {27,91,54,126};
 
 typedef ssize_t (*io_func_t)(int, void*, size_t);
 
-int checked(io_func_t handler, int sock, void* buff, size_t cnt) {
+int checked(io_func_t handler, int sock, void* buff, size_t cnt, char* err_message) {
 	int res;
 	if ((res = handler(sock, buff, cnt)) < 0) {
-		syserr("write");
+		syserr(err_message);
 	}
 	return res;
 	
 }
 
 int checked_write(int sock, const void* buff, size_t cnt) {
-	return checked((io_func_t) write, sock,(char*) buff, cnt);
+	return checked((io_func_t) write, sock,(char*) buff, cnt, "write");
 } 
 
 int checked_read(int sock, void* buff, size_t cnt) {
-	return checked(read, sock, buff, cnt);
-}
-
-bool is_number(const char *str) {
-    while(*str != '\0')
-    {
-        if(*str < '0' || *str > '9')
-            return FALSE;
-        str++;
-    }
-    return TRUE;
+	return checked(read, sock, buff, cnt, "read");
 }
 
 int strncmp_unsigned(unsigned char* p1, unsigned char *p2, int len) {
@@ -89,10 +84,116 @@ int strncmp_unsigned(unsigned char* p1, unsigned char *p2, int len) {
 	return i == len ? 0 : (*p1 - *p2);
 }
 
+bool is_number(const char *str) {
+    while(*str != '\0')
+    {
+        if(*str < '0' || *str > '9')
+            return FALSE;
+        str++;
+    }
+    return TRUE;
+}
+
+int mod(int a, int b) {
+   int ret = a % b;
+   if(ret < 0)
+     ret += b;
+   return ret;
+}
+
+typedef struct state {
+	int level;
+	int position;
+	char bottom[3];
+} state_t;
+
+bool update_state(state_t* state, unsigned char* message, int len) {
+	if (!strncmp_unsigned(message, UP_ARROW, len)) {
+		state->position = mod(state->position - 1, 3); 
+		state->bottom[0] = 0;
+	} else if (!strncmp_unsigned(message, DOWN_ARROW, len)) {
+		state->position = mod(state->position + 1, 3); 
+		state->bottom[0] = 0;
+	} else if (!strncmp_unsigned(message, ENTER, len)) {
+		if (state->position == 2) {
+			bool res = state->level == 0;
+			state->level = max(state->level - 1, 0);
+			return res;
+		}
+		switch(state->level) {
+			case 0:
+				if (state->position == 0) {
+					state->bottom[0] = 'A';
+					state->bottom[1] = 0;
+				} else {
+					state->bottom[0] = 0;
+					state->level++;
+					state->position = 0;
+				}
+				break;
+
+			case 1:
+				state->bottom[0] = 'B';
+				state->bottom[1] = state->position + 1 + '0';
+				state->bottom[2] = 0;
+				break;
+
+			default:
+			fprintf(stderr, "error in get_menu, level out of range: %d", state->level);
+			exit(2);
+
+		}
+	} else if (!strncmp_unsigned(message, PAGE_UP, len)) {
+		state->level = state->level - 1 > 0 ? 0 : state->level - 1;
+	}
+	
+	return FALSE;
+}
+
+char* get_menu(state_t state) {
+	//char** options = get_opts(state.level);
+
+	char* options[3];
+	int len = 3;
+	switch(state.level) {
+		case 0:
+			options[0] = "OPCJA A";
+			options[1] = "OPCJA B";
+			options[2] = "ZAKOŃCZ";
+			break;
+
+		case 1:
+			options[0] = "OPCJA B1";
+			options[1] = "OPCJA B2";
+			options[2] = "POWRÓT";
+			break;
+
+		default:
+			fprintf(stderr, "error in get_menu, level out of range: %d", state.level);
+			exit(2);
+	}
+
+	char* res = (char*)malloc(sizeof(char)*1000);
+	memset(res, 0, 1000);
+	for (int i = 0; i < len; i++) {
+		if (state.position == i) {
+			strcat(res, "\033[7m");
+			strcat(res, options[i]);
+			strcat(res, "\033[m");
+		} else strcat(res, options[i]);
+		strcat(res, "\r\n");
+	}
+
+	return res;
+}
+
+
+//{255, 251, 1, 255, 251, 3, 255, 252, 34, 0};
+//IAC WILL ECHO IAC WILL SGA IAC WONT LINEMODE 0
 //LINEMODE(34)->FORWARDMASK(2)->everything
 int init_telnet_opts(int sock) {
-	unsigned char sga_neg[3] = {TELNET_IAC, TELNET_WILL, TELNET_SGA};
-	unsigned char sga_neg_exp[3] = {TELNET_IAC, TELNET_DO, TELNET_SGA};
+	unsigned char sga_neg[] = {TELNET_IAC, TELNET_WILL, TELNET_SGA};
+	unsigned char sga_neg_exp[] = {TELNET_IAC, TELNET_DO, TELNET_SGA};
 	checked_write(sock, sga_neg, 3);
 	checked_read(sock, sga_neg, 3);
 	if (strncmp_unsigned(sga_neg, sga_neg_exp, 3)) {
@@ -100,54 +201,15 @@ int init_telnet_opts(int sock) {
 		return 1;
 	}
 	
-	unsigned char linemode_neg[3] = { TELNET_IAC, TELNET_DO, TELNET_LINEMODE };
-	unsigned char linemode_neg_exp[3] = {TELNET_IAC, TELNET_WILL, TELNET_LINEMODE };
-	checked_write(sock, linemode_neg, 3);
-	checked_read(sock, linemode_neg, 3);
-	if(strncmp_unsigned(linemode_neg, linemode_neg_exp, 3)) {
-		printf("can't negotiate linemode, got %x %x %x\n", linemode_neg[0], linemode_neg[1], linemode_neg[2]);
-		return 1;
+	unsigned char echo_neg[] = {TELNET_IAC, TELNET_WILL, TELNET_ECHO};
+	unsigned char echo_neg_exp[] = {TELNET_IAC, TELNET_DO, TELNET_ECHO};
+	checked_write(sock, echo_neg, 3);
+	checked_read(sock, echo_neg, 3);
+	if (strncmp_unsigned(echo_neg, echo_neg_exp, 3)) {
+		printf("can't negotiate echo");
+		return 1;		
 	}
 
-	unsigned int forwardmask_neg_size = 64+7;
-	unsigned char forwardmask_neg[forwardmask_neg_size];
-	//unsigned char forwardmask_neg_exp[7] = {TELNET_IAC, TELNET_SB, TELNET_LINEMODE, TELNET_WILL, TELNET_LINEMODE_FM, TELNET_IAC, TELNET_SE};
-	forwardmask_neg[0] = TELNET_IAC;
-	forwardmask_neg[1] = TELNET_SB;
-	forwardmask_neg[2] = TELNET_LINEMODE;
-	forwardmask_neg[3] = TELNET_DO;
-	forwardmask_neg[4] = TELNET_LINEMODE_FM;
-	for(unsigned int i = 5; i < forwardmask_neg_size - 2; i++) {
-		forwardmask_neg[i] = TELNET_IAC;
-	}
-	forwardmask_neg[forwardmask_neg_size - 2] = TELNET_IAC;
-	forwardmask_neg[forwardmask_neg_size - 1] = TELNET_SE;
-	checked_write(sock, forwardmask_neg, forwardmask_neg_size);
-	int len = checked_read(sock, forwardmask_neg, forwardmask_neg_size);
-	for (int i = 0; i < len; i++) printf("%d ", forwardmask_neg[i]);
-	printf("\n");
-	len = checked_read(sock, forwardmask_neg, forwardmask_neg_size);
-	for (int i = 0; i < len; i++) printf("%d ", forwardmask_neg[i]);
-	printf("\n");
-	//if(strncmp_unsigned(forwardmask_neg, forwardmask_neg_exp, 7)) {
-	//	printf("can't negotiate forwardmask, got (%d) %x %x %x %x %x\n", len, forwardmask_neg[0], forwardmask_neg[1], forwardmask_neg[2], forwardmask_neg[3], forwardmask_neg[4]);
-	//	return 1;
-	//}
-	
-	unsigned char supdup_neg[10] = {TELNET_IAC, TELNET_DO, TELNET_SUPDUP };
-	unsigned char supdup_neg_exp[3] = {TELNET_IAC, TELNET_WILL, TELNET_SUPDUP };
-	checked_write(sock, supdup_neg, 3);
-	len = checked_read(sock, supdup_neg, 10);
-	for (int i = 0; i < len; i++) printf("%d ", supdup_neg[i]);
-	printf("\n");
-
-	unsigned char supdup_neg2[10] = {TELNET_IAC, TELNET_WILL, TELNET_SUPDUP };
-	unsigned char supdup_neg_exp2[3] = {TELNET_IAC, TELNET_DO, TELNET_SUPDUP };
-	checked_write(sock, supdup_neg2, 3);
-	len = checked_read(sock, supdup_neg2, 10);
-	for (int i = 0; i < len; i++) printf("%d ", supdup_neg2[i]);
-	printf("\n");
-	
 	return 0;
 }
 
@@ -160,8 +222,14 @@ int main(int argc, char* argv[]) {
 		printf("expected uint parameter: port number, but got %s\n", argv[1]);
 		return 1;
 	}
-	int port = atoi(argv[1]);
-	
+
+	errno = 0;
+	char* endptr;
+	long port = strtol(argv[1], &endptr, 10);
+	if ((errno == ERANGE && (port == LONG_MAX || port == LONG_MIN)) || (errno != 0 && port == 0)) {
+		syserr("strtol");
+	}
+
 	int sock = socket(PF_INET, SOCK_STREAM, 0);
 	if (sock < 0) syserr("socket");
 
@@ -176,31 +244,48 @@ int main(int argc, char* argv[]) {
 
 	if (listen(sock, QUEUE_LENGTH) < 0) syserr("listen");
 
-	char buffer[BUFFER_SIZE];
-	while(1) {
+	unsigned char buffer[BUFFER_SIZE];
+	while(TRUE) {
 		struct sockaddr_in client_address;
 		socklen_t client_address_len = sizeof(client_address); 
     	int msg_sock = accept(sock, (struct sockaddr *) &client_address, &client_address_len);
 
 		if(init_telnet_opts(msg_sock)) {
-			exit(1);
 			if (close(msg_sock) < 0)
 				syserr("close");
 			continue;
 		}
 
+		state_t state;
+		state.level = state.position = 0;
+		char* menu = get_menu(state);
+		printf(menu);
+		checked_write(msg_sock, CLEAN_SCREEN, strlen(CLEAN_SCREEN));
+		checked_write(msg_sock, menu, strlen(menu));
+		free(menu);
+
 		ssize_t len;
 		do {
-			len = read(msg_sock, buffer, sizeof(buffer));
-			if (len < 0)
-				syserr("reading from client socket");
-			else {
-				printf("read from socket: %zd bytes: ", len);
-				for (int i = 0; i < len; i++) printf("%d ", buffer[i]);
-				printf("\n");
-				int snd_len = write(msg_sock, buffer, len);
-				if (snd_len != len)
-					syserr("writing to client socket");
+			len = checked_read(msg_sock, buffer, sizeof(buffer));
+			
+			if (len == 0) break;
+
+			printf("read from socket: %zd bytes: ", len);
+			for (int i = 0; i < len; i++) printf("%d ", buffer[i]);
+			printf("\n");
+
+			bool end = update_state(&state, buffer, len);
+			if (end) {
+				break;
+			} else {
+				menu = get_menu(state);
+				checked_write(msg_sock, CLEAN_SCREEN, strlen(CLEAN_SCREEN));
+				checked_write(msg_sock, menu, strlen(menu));
+				free(menu);
+				if (state.bottom[0] != 0) {
+					checked_write(msg_sock, state.bottom, strlen(state.bottom));
+					checked_write(msg_sock, "\r\n", 2);
+				}
 			}
 		} while (len > 0);
 		printf("ending connection\n");

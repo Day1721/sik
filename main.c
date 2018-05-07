@@ -255,7 +255,6 @@ int main(int argc, char* argv[]) {
 		state_t state;
 		state.level = state.position = 0;
 		char* menu = get_menu(state);
-		printf(menu);
 		checked_write(msg_sock, CLEAN_SCREEN, strlen(CLEAN_SCREEN));
 		checked_write(msg_sock, menu, strlen(menu));
 		free(menu);
@@ -266,9 +265,9 @@ int main(int argc, char* argv[]) {
 			
 			if (len == 0) break;
 
-			printf("read from socket: %zd bytes: ", len);
-			for (int i = 0; i < len; i++) printf("%d ", buffer[i]);
-			printf("\n");
+			fprintf(stderr, "read from socket: %zd bytes: ", len);
+			for (int i = 0; i < len; i++) fprintf(stderr, "%d ", buffer[i]);
+			fprintf(stderr, "\n");
 
 			bool end = update_state(&state, buffer, len);
 			if (end) {

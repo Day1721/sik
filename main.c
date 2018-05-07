@@ -151,8 +151,6 @@ bool update_state(state_t* state, unsigned char* message, int len) {
 }
 
 char* get_menu(state_t state) {
-	//char** options = get_opts(state.level);
-
 	char* options[3];
 	int len = 3;
 	switch(state.level) {
@@ -188,9 +186,6 @@ char* get_menu(state_t state) {
 }
 
 
-//{255, 251, 1, 255, 251, 3, 255, 252, 34, 0};
-//IAC WILL ECHO IAC WILL SGA IAC WONT LINEMODE 0
-//LINEMODE(34)->FORWARDMASK(2)->everything
 int init_telnet_opts(int sock) {
 	unsigned char sga_neg[] = {TELNET_IAC, TELNET_WILL, TELNET_SGA};
 	unsigned char sga_neg_exp[] = {TELNET_IAC, TELNET_DO, TELNET_SGA};
@@ -212,6 +207,7 @@ int init_telnet_opts(int sock) {
 
 	return 0;
 }
+
 
 int main(int argc, char* argv[]) {
 	if (argc != 2) {

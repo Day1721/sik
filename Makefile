@@ -6,11 +6,11 @@ all: main
 err.o: err.c err.h
 	$(CC) $(CFLAGS) -c -o err.o err.c
 
-main: main.c err.o
-	$(CC) $(CFLAGS) -o main main.c err.o
+task1: task1.c err.o
+	$(CC) $(CFLAGS) -o task1 task1.c err.o
 
-main-debug: main.c err.o
-	$(CC) $(CFLAGS) -g -o main main.c err.o
+task1-debug: task1.c err.o
+	$(CC) $(CFLAGS) -g -o task1 task1.c err.o
 
 clean:
-	rm main err.o
+	rm task1 *.o

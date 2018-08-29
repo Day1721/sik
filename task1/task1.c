@@ -8,7 +8,7 @@
 #include <errno.h>
 #include <limits.h>
 
-#include "err.h"
+#include "../shared/err.h"
 
 #define QUEUE_LENGTH 10
 #define BUFFER_SIZE 10

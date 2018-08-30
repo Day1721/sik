@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "../shared/addr.h"
 #include "../shared/err.h"
@@ -14,13 +15,26 @@ package_t* prepare_package(params_t* params, char* buff) {
     return res;
 }
 
+// yes, I really wrote it, cause I don't really know 
+// how read EXACTLY n bytes from pipe until EOF (read don't work as expected here)
+size_t read_from_stdin(char* buffer, size_t buffsize) {
+    int c;
+    for (size_t i = 0; i < buffsize; i++) {
+        switch(c = getchar()) {
+            case EOF:
+                return i;
+            default:
+                buffer[i] = c;
+        }
+    }
+    return buffsize;
+}
+
 void run_data(params_t* params, int pipe_fd) {
     char buffer[params->pack_size];
     char send_buffer[pack_size(params->pack_size)];
     while (true) {
-        ssize_t slen = read(STDIN_FILENO, buffer, params->pack_size);
-        if (slen < 0) syserr("read stdin in run_data");
-        size_t len = (size_t)slen;
+        size_t len = read_from_stdin(buffer, params->pack_size);
         if (len != params->pack_size) break;
 
         package_t* package = prepare_package(params, buffer);

@@ -1,7 +1,7 @@
 #ifndef SHARED_PROTO_H
 #define SHARED_PROTO_H
 
-const char* CTRL_LOOKUP = "ZERO_SEVEN_COME_IN";
+const char* CTRL_LOOKUP = "ZERO_SEVEN_COME_IN\n";
 const char* CTRL_REPLY = "BOREWICZ_HERE";
 const char* CTRL_REXMIT = "LOUDER_PLEASE";
 

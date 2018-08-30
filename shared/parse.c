@@ -25,5 +25,6 @@ int64_t str_to_i64(const char *s) {
   char c;
   int scanned = sscanf(s, "%" SCNd64 "%c", &i, &c);
   if (scanned == 1) return i;
+  if (c == '\n') return -2;
   return -1;  
 }

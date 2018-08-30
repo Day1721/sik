@@ -1,5 +1,5 @@
 #include <stdbool.h>
-#include <poll.h>
+#include <sys/poll.h>
 #include <unistd.h>
 #include <stdlib.h>
 
@@ -47,7 +47,7 @@ void update_packages(params_t* params, char* serialized_pack) {
     }
 }
 
-static int make_data_sock() {
+static int make_data_sock(params_t* params) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         syserr("socket in run_data");
@@ -71,10 +71,19 @@ static int make_data_sock() {
     //     syserr("bind local in run_data");
     // }
 
+    struct sockaddr_in remote_address;
+    remote_address.sin_family = AF_INET;
+    remote_address.sin_port = htons(params->data_port);
+    remote_address.sin_addr.s_addr = params->multicast_ip;
+
+    if (connect(sock, (struct sockaddr*)&remote_address, sizeof(remote_address)) < 0) {
+        syserr("connect data_sock");
+    }
+
     return sock;
 }
 
-void read_package(params_t* params, int sock, struct sockaddr_in remote, int pipe_fd) {
+void read_package(params_t* params, int sock, int pipe_fd) {
     size_t size = pack_size(params->pack_size);
     char buffer[size];
     
@@ -84,7 +93,7 @@ void read_package(params_t* params, int sock, struct sockaddr_in remote, int pip
     }
 
     update_packages(params, buffer);
-    if ((rw_res = sendto(sock, buffer, size, 0, (struct sockaddr*) &remote, sizeof(remote))) < 0 || ((size_t)rw_res) != size) {
+    if ((rw_res = write(sock, buffer, size)) < 0 || ((size_t)rw_res) != size) {
         syserr("sendto data_sock new");
     }
     // if (write(sock, buffer, size) != size) {
@@ -92,7 +101,7 @@ void read_package(params_t* params, int sock, struct sockaddr_in remote, int pip
     // }
 }
 
-void read_resend(params_t* params, int sock, struct sockaddr_in remote, int pipe_fd) {
+void read_resend(params_t* params, int sock, int pipe_fd) {
     uint64_t pack_id;
     if (read(pipe_fd, &pack_id, sizeof(uint64_t)) != sizeof(uint64_t)) {
         syserr("read resend pipe");
@@ -108,7 +117,7 @@ void read_resend(params_t* params, int sock, struct sockaddr_in remote, int pipe
     serialize_to(to_send, buffer, params->pack_size);
 
     ssize_t rw_res;
-    if ((rw_res = sendto(sock, buffer, size, 0, (struct sockaddr*) &remote, sizeof(remote))) < 0 || ((size_t)rw_res) != size) {
+    if ((rw_res = write(sock, buffer, size)) < 0 || ((size_t)rw_res) != size) {
         syserr("sendto data_sock resend");
     }
     
@@ -118,12 +127,7 @@ void read_resend(params_t* params, int sock, struct sockaddr_in remote, int pipe
 }
 
 void run_transmit(params_t* params, int pack_pipe, int resend_pipe) {
-    int sock = make_data_sock();
-
-    struct sockaddr_in remote_address;
-    remote_address.sin_family = AF_INET;
-    remote_address.sin_port = htons(params->data_port);
-    remote_address.sin_addr.s_addr = params->multicast_ip;
+    int sock = make_data_sock(params);
 
     struct pollfd fds[2];
     fds[0].fd = pack_pipe;
@@ -137,10 +141,10 @@ void run_transmit(params_t* params, int pack_pipe, int resend_pipe) {
             syserr("poll");
         }
         if (fds[0].revents & POLLIN) {
-            read_package(params, sock, remote_address, pack_pipe);
+            read_package(params, sock, pack_pipe);
         }
         if (fds[1].revents & POLLIN) {
-            read_resend(params, sock, remote_address, pack_pipe);
+            read_resend(params, sock, pack_pipe);
         }
     }
 }

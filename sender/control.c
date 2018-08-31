@@ -6,11 +6,13 @@
 #include <string.h>
 #include <fcntl.h> 
 
-#include "../shared/err.h"
 #include "../shared/parse.h"
 
+#include "signalcom.h"
 #include "proto.h"
 #include "control.h"
+
+#define syserr(message) syserr_sig(message)
 
 static int get_ctrl_sock(params_t* params) {
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -38,13 +40,15 @@ void parse_rexmit_body(char* buffer, int pipe_fd) {
         if (val == -1) {
             // ignore invalid values in retransmit package (long-staying server)
         } else {
+            bool is_end = false;
+            if (val < 0) {
+                is_end = true;
+                val = -val;
+            }
             if (write(pipe_fd, &val, sizeof(int64_t)) != sizeof(int64_t)) {
                 syserr("write ctrl_pipe");
             }
-            if (val == -2) {
-                // newline after number => end of input
-                break;
-            }
+            if (is_end) break;
         }
     }
 }
@@ -95,7 +99,6 @@ void run_ctrl(params_t* params, int pipe_fd) {
         struct sockaddr_in client;
         socklen_t client_size = sizeof(client);
         ssize_t len = recvfrom(sock, buffer, sizeof(buffer) - 1, 0, (struct sockaddr*)&client, &client_size);
-        printf("%s", buffer);
         if (len < 0) {
             syserr("recvfrom in run_ctrl");
         }

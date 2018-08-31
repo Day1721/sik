@@ -4,11 +4,13 @@
 #include <stdlib.h>
 
 #include "../shared/addr.h"
-#include "../shared/err.h"
 #include "../shared/list.h"
 
+#include "signalcom.h"
 #include "structs.h"
 #include "transmit.h"
+
+#define syserr(message) syserr_sig(message)
 
 size_t packs_len = 0;
 list2_t* packages = NULL;
@@ -93,6 +95,13 @@ void read_package(params_t* params, int sock, int pipe_fd) {
     }
 
     update_packages(params, buffer);
+    
+#ifdef RETRANSTEST
+    static int cnt = 0;
+    cnt = (cnt + 1) % 5000;
+    if (cnt == 4999) syserr("42");
+#endif //DRETRANSTEST
+
     if ((rw_res = write(sock, buffer, size)) < 0 || ((size_t)rw_res) != size) {
         syserr("sendto data_sock new");
     }
@@ -144,7 +153,7 @@ void run_transmit(params_t* params, int pack_pipe, int resend_pipe) {
             read_package(params, sock, pack_pipe);
         }
         if (fds[1].revents & POLLIN) {
-            read_resend(params, sock, pack_pipe);
+            read_resend(params, sock, resend_pipe);
         }
     }
 }

@@ -1,11 +1,15 @@
-#define _POSIX_SOURCE
+#define _POSIX_SOURCE 
+#define _POSIX_C_SOURCE 200809L
 
 #include <unistd.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <stdio.h>
 
-#include "../shared/err.h"
+#include "../shared/time.h"
 
+#include "signalcom.h"
 #include "data.h"
 #include "control.h"
 #include "retransmit.h"
@@ -13,17 +17,12 @@
 #include "sender.h"
 
 #define BUFFER_SIZE 100
+#define END_TIMEOUT_MS 1
 
-pid_t child = -1;
-void sigkill_handle(int sig) {
-    if (sig == SIGQUIT && child > 0)
-        _exit(1);
-}
+#define syserr(message) syserr_sig(message)
 
 void run_sender(params_t* params) {
-    if (signal(SIGQUIT, sigkill_handle) == SIG_ERR) {
-        syserr("signal");
-    }
+    reg_handler();
 
     int pipe_io[2];
     if (pipe(pipe_io) < 0) {
@@ -50,8 +49,8 @@ void run_sender(params_t* params) {
                 
                 case 0:
                     close(pipe_out);
-                    close(pipe_io[1]);
-                    pipe_out = pipe_io[0];
+                    close(pipe_io[0]);
+                    pipe_out = pipe_io[1];
 
                     if (pipe(pipe_io) < 0) {
                         syserr("pipe C->R");
@@ -89,11 +88,10 @@ void run_sender(params_t* params) {
             close(pipe_io[0]);
             run_data(params, pipe_io[1]);
 
-            if (signal(SIGQUIT, SIG_IGN) == SIG_ERR) {
-                syserr("signal SIG_IGN");
-            }
+            send_signal();
 
-            kill(-getpid(), SIGQUIT);
+            int status;
+            waitpid(child, &status, 0);
             break;
     }
 }

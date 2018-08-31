@@ -1,12 +1,16 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 
 #include "../shared/addr.h"
-#include "../shared/err.h"
+#include "signalcom.h"
 
 #include "data.h"
+
+#define syserr(message) syserr_sig(message)
 
 package_t* prepare_package(params_t* params, char* buff) {
     static uint64_t first_byte = 0;

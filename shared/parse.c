@@ -21,10 +21,10 @@ long checked_strtol(char* str) {
 
 
 int64_t str_to_i64(const char *s) {
-  uint64_t i;
+  uint64_t i = 0;
   char c;
   int scanned = sscanf(s, "%" SCNd64 "%c", &i, &c);
   if (scanned == 1) return i;
-  if (c == '\n') return -2;
+  if (c == '\n') return -i;
   return -1;  
 }

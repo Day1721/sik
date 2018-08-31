@@ -1,37 +1,20 @@
-#define _GNU_SOURCE
-
 #include <stdbool.h>
 #include <fcntl.h> 
-#include <time.h>
 #include <unistd.h>
 #include <errno.h>
 
-#include "../shared/err.h"
+#include "signalcom.h"
+#include "../shared/time.h"
 
 #include "retransmit.h"
 
-unsigned int militime() {
-    struct timespec ts;
-    if (clock_gettime(CLOCK_REALTIME, &ts) < 0) {
-        syserr("clock_gettime");
-    }
-
-    return (ts.tv_nsec / 1000000) + ts.tv_sec * 1000;
-}
-
-void milisleep(unsigned int milliseconds)
-{
-    struct timespec ts;
-    ts.tv_sec = milliseconds / 1000;
-    ts.tv_nsec = (milliseconds % 1000) * 1000000;
-    nanosleep(&ts, NULL);
-}
-
+#define syserr(message) syserr_sig(message)
 
 void run_resend(params_t* params, int ctrl_pipe, int trans_pipe) {
     fcntl(ctrl_pipe, F_SETFL, O_NONBLOCK);
 
     unsigned int sleep_milis = params->resend_time;
+    int cnt = 0;
     while (true) {
         milisleep(sleep_milis);
         time_t start_time = militime();
@@ -41,6 +24,11 @@ void run_resend(params_t* params, int ctrl_pipe, int trans_pipe) {
             if (write(trans_pipe, &value, sizeof(uint64_t)) < 0) {
                 syserr("write to trans_pipe");
             }
+        }
+
+        cnt++;
+        if (cnt > 1000) {
+            syserr("TESTING");
         }
 
         if (errno != EAGAIN) {

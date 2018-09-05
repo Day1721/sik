@@ -51,12 +51,6 @@ size_t pack_size(size_t audio_size) {
     return audio_size + 2*sizeof(uint64_t);
 }
 
-// bool addr_eq(struct sockaddr_in left, struct sockaddr_in right) {
-//     if (left.sin_addr.s_addr != right.sin_addr.s_addr) return false;
-//     if (left.sin_port != right.sin_port) return false;
-//     return true;
-// }
-
 static bool is_multicast(in_addr_t addr) {
     uint32_t address = ntohl(addr);
     return (address & 0xF0000000) == 0xE0000000;

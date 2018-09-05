@@ -36,7 +36,7 @@ void run_sender(params_t* params) {
 
         case 0:
             close(pipe_io[1]);
-            int pipe_out = pipe_io[0];//dp_pipe_out
+            int pipe_out = pipe_io[0]; 
 
             if (pipe(pipe_io) < 0) {
                 syserr("pipe R->T");

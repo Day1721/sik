@@ -14,7 +14,6 @@ void run_resend(params_t* params, int ctrl_pipe, int trans_pipe) {
     fcntl(ctrl_pipe, F_SETFL, O_NONBLOCK);
 
     unsigned int sleep_milis = params->resend_time;
-    int cnt = 0;
     while (true) {
         int tmp;
         milisleep(sleep_milis);
@@ -28,11 +27,6 @@ void run_resend(params_t* params, int ctrl_pipe, int trans_pipe) {
             if (write(trans_pipe, &value, sizeof(uint64_t)) < 0) {
                 syserr("write to trans_pipe");
             }
-        }
-
-        cnt++;
-        if (cnt > 1000) {
-            syserr("TESTING");
         }
 
         if (errno != EAGAIN) {

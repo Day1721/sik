@@ -60,19 +60,6 @@ static int make_data_sock(params_t* params) {
         syserr("setsockopt broadcast in run_data");
     }
 
-    // optval = MULTCAST_TTL_VALUE;
-    // if (setsockopt(sock, SOL_SOCKET, IP_MULTICAST_TTL, &optval, sizeof(optval)) < 0) {
-    //     syserr("setsockopt ttl in run_data");
-    // }
-
-    // struct sockaddr_in local_address;
-    // local_address.sin_family = AF_INET;
-    // local_address.sin_addr.s_addr = htonl(INADDR_ANY);
-    // local_address.sin_port = htons(params->data_port);
-    // if (bind(sock, (struct sockaddr *)&local_address, sizeof local_address) < 0) {
-    //     syserr("bind local in run_data");
-    // }
-
     struct sockaddr_in remote_address;
     remote_address.sin_family = AF_INET;
     remote_address.sin_port = htons(params->data_port);
@@ -105,9 +92,6 @@ void read_package(params_t* params, int sock, int pipe_fd) {
     if ((rw_res = write(sock, buffer, size)) < 0 || ((size_t)rw_res) != size) {
         syserr("sendto data_sock new");
     }
-    // if (write(sock, buffer, size) != size) {
-    //     syserr("write data_sock");
-    // }
 }
 
 void read_resend(params_t* params, int sock, int pipe_fd) {
@@ -129,10 +113,6 @@ void read_resend(params_t* params, int sock, int pipe_fd) {
     if ((rw_res = write(sock, buffer, size)) < 0 || ((size_t)rw_res) != size) {
         syserr("sendto data_sock resend");
     }
-    
-    // if (write(sock, buffer, size) != size) {
-    //     syserr("write data_sock");
-    // }
 }
 
 void run_transmit(params_t* params, int pack_pipe, int resend_pipe) {

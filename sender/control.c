@@ -73,8 +73,6 @@ void parse_ctrl(params_t* params, int sock, char* buffer, int pipe_fd, struct so
 }
 
 
-
-
 void run_ctrl(params_t* params, int pipe_fd) {
     fcntl(pipe_fd, F_SETFL, O_NONBLOCK);
     int sock = get_ctrl_sock(params);
@@ -85,14 +83,6 @@ void run_ctrl(params_t* params, int pipe_fd) {
     if (setsockopt(sock, IPPROTO_IP, IP_ADD_MEMBERSHIP, (void*)&mreq, sizeof(mreq)) < 0) {
         syserr("setsockopt ADD_MEMBERSHIP");
     }
-    // int resuseaddr_param = 1;
-    // if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void*)&resuseaddr_param, sizeof(resuseaddr_param)) < 0) {
-    //     syserr("setsockopt SO_REUSEADDR");
-    // }
-    // in_addr_t any_addr = INADDR_ANY;
-    // if (setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, (void*)&any_addr, sizeof(any_addr)) < 0) {
-    //     syserr("setsockopt IP_MULTICAST_IF");
-    // }
 
     char buffer[MAX_CTRL_BUFFER_SIZE];
 
@@ -109,9 +99,4 @@ void run_ctrl(params_t* params, int pipe_fd) {
 
         parse_ctrl(params, sock, buffer, pipe_fd, (struct sockaddr*)&client, client_size);
     }
-    
-    // if (setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void*)&mreq, sizeof(mreq)) < 0) {
-    //     syserr("setsockopt DROP_MEMBERSHIP");
-    // }
-    close(sock);
 }

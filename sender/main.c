@@ -62,6 +62,8 @@ int main(int argc, char* argv[]) {
                     data_port = checked_strtol(optarg);
                     if (data_port == -1) {
                         exit_print_usage(opt_char, "invalid format");
+                    } else if (!port_valid(data_port)) {
+                        exit_print_usage(opt_char, "port number is from invalid range");
                     }
                 }
                 break;
@@ -73,6 +75,8 @@ int main(int argc, char* argv[]) {
                     ctrl_port = checked_strtol(optarg);
                     if (ctrl_port == -1) {
                         exit_print_usage(opt_char, "invalid format");
+                    } else if (!port_valid(ctrl_port)) {
+                        exit_print_usage(opt_char, "port number is from invalid range");
                     }
                 }
                 break;
@@ -82,6 +86,9 @@ int main(int argc, char* argv[]) {
                     exit_print_usage(opt_char, "parameter's duplicate");
                 } else {
                     pack_size = checked_strtol(optarg);
+                    if (pack_size <= 0) {
+                        exit_print_usage(opt_char, "invalid format");
+                    }
                 }
                 break;
 
@@ -90,7 +97,7 @@ int main(int argc, char* argv[]) {
                     exit_print_usage(opt_char, "parameter's duplicate");
                 } else {
                     fifo_size = checked_strtol(optarg);
-                    if (fifo_size == -1) {
+                    if (fifo_size <= 0) {
                         exit_print_usage(opt_char, "invalid format");
                     }
                 }
@@ -101,7 +108,7 @@ int main(int argc, char* argv[]) {
                     exit_print_usage(opt_char, "parameter's duplicate");
                 } else {
                     resend_time = checked_strtol(optarg);
-                    if (fifo_size == -1) {
+                    if (fifo_size <= 0) {
                         exit_print_usage(opt_char, "invalid format");
                     }
                 }
@@ -110,8 +117,12 @@ int main(int argc, char* argv[]) {
             case 'n':
                 if (name != NULL) {
                     exit_print_usage(opt_char, "parameter duplicate");
-                } else if (strlen(optarg) > 64) {
+                } 
+                int len = strlen(optarg);
+                if (len > 64) {
                     exit_print_usage(opt_char, "too long name");
+                } else if (len == 0) {
+                    exit_print_usage(opt_char, "name should be not empty");
                 } else {
                     name = optarg;
                 }
@@ -137,6 +148,9 @@ int main(int argc, char* argv[]) {
         .name = name != NULL ? name : NAME,
     };
 
+    if (params.data_port == params.ctrl_port) {
+        exit_print_usage(' ', "data port (p) and ctrl port (c) are equal");
+    }
 
     run_sender(&params);
 

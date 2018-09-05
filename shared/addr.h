@@ -24,4 +24,6 @@ in_addr_t parse_address(char* addr);
 uint64_t htonll(uint64_t n);
 uint64_t ntohll(uint64_t n);
 
+bool port_valid(int port_nr);
+
 #endif //SHARED_ADDR_H

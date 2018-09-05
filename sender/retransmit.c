@@ -16,8 +16,12 @@ void run_resend(params_t* params, int ctrl_pipe, int trans_pipe) {
     unsigned int sleep_milis = params->resend_time;
     int cnt = 0;
     while (true) {
+        int tmp;
         milisleep(sleep_milis);
-        time_t start_time = militime();
+        if ((tmp = militime()) < 0) {
+            syserr("militime");
+        }
+        time_t start_time = tmp; 
 
         uint64_t value;
         while (read(ctrl_pipe, &value, sizeof(uint64_t)) > 0) {
@@ -35,7 +39,10 @@ void run_resend(params_t* params, int ctrl_pipe, int trans_pipe) {
             syserr("read from ctrl_pipe");
         }
 
-        time_t end_time = militime();
+        if ((tmp = militime()) < 0) {
+            syserr("militime");
+        }
+        time_t end_time = tmp;
         sleep_milis = params->resend_time - (end_time - start_time);
     }
 }

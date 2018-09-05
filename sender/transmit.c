@@ -98,8 +98,8 @@ void read_package(params_t* params, int sock, int pipe_fd) {
     
 #ifdef RETRANSTEST
     static int cnt = 0;
-    cnt = (cnt + 1) % 5000;
-    if (cnt == 4999) syserr("42");
+    cnt = (cnt + 1) % 4;
+    if (cnt != 1) return;
 #endif //DRETRANSTEST
 
     if ((rw_res = write(sock, buffer, size)) < 0 || ((size_t)rw_res) != size) {

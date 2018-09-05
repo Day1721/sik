@@ -7,7 +7,7 @@
 #include <time.h>
 
 #include "addr.h"
-#include "../shared/err.h"
+#include "err.h"
 
 package_t* new_package(uint64_t first_byte_num, char* audio, size_t len) {
     static uint64_t session_id = 0;
@@ -80,4 +80,8 @@ uint64_t htonll(uint64_t n) {
 
 uint64_t ntohll(uint64_t n) {
     return htonll(n);
+}
+
+bool port_valid(int port_nr) {
+    return port_nr >= 1024;
 }

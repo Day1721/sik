@@ -41,6 +41,7 @@ void parse_rexmit_body(char* buffer, int pipe_fd) {
             // ignore invalid values in retransmit package (long-staying server)
         } else {
             bool is_end = false;
+            // little weird convension for last retransmit package id
             if (val < 0) {
                 is_end = true;
                 val = -val;

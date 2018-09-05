@@ -1,8 +1,8 @@
-#ifndef TIME_H
-#define TIME_H
+#ifndef SHARED_TIME_H
+#define SHARED_TIME_H
 
-unsigned int militime();
+int militime();
 
 void milisleep(unsigned int milliseconds);
 
-#endif //TIME_H
+#endif //SHARED_TIME_H

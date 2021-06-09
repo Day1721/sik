@@ -1,0 +1,7 @@
+Repository containing university projects for Computer Networks.
+
+Contains 2 projects:
+- task 1: simple telnet sever (task description in polish inside `task1`)
+- task 2: network-based radio, consists of:
+  - `sender` - radio server, which broadcasts data for clients
+  - `receiver` - (not implemented) radio client, which receives audio and plays
